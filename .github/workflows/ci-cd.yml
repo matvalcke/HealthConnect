@@ -1,0 +1,50 @@
+name: CI/CD Pipeline for Backend
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Cache Docker layers
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Build Docker image for backend
+      run: docker build --tag healthconnect-backend .
+
+    - name: Run tests for backend
+      run: |
+        docker run --name healthconnect-backend-test -d healthconnect-backend
+        sleep 10
+        docker exec healthconnect-backend-test curl -f http://localhost:3000 || (docker logs healthconnect-backend-test && exit 1)
+
+    - name: Push Docker image to Docker Hub
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+        docker tag healthconnect-backend ${{ secrets.DOCKER_USERNAME }}/healthconnect-backend:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/healthconnect-backend:latest
+
+    - name: Deploy to VPS
+      if: github.ref == 'refs/heads/main'
+      run: |
+        ssh root@${{ secrets.VPS_HOST }} "docker pull ${{ secrets.DOCKER_USERNAME }}/healthconnect-backend:latest && docker stop healthconnect-backend || true && docker rm healthconnect-backend || true && docker run -d --name healthconnect-backend -p 3000:3000 ${{ secrets.DOCKER_USERNAME }}/healthconnect-backend:latest"

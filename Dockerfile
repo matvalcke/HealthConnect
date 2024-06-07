@@ -1,20 +1,18 @@
 # Utilisation de l'image Node.js officielle en tant qu'image de base
 FROM node:latest
 
-# Définition du répertoire de travail dans le conteneur
-WORKDIR /app
+# Définir le répertoire de travail à l'intérieur du coteneur
+WORKDIR /usr/src/app
 
-# Copie des fichiers package.json et package-lock.json pour installer les dépendances
+# Copier le fichier package.json et package-lock.json dans le conteneur
 COPY package*.json ./
 
-# Installation des dépendances
+# Installer les dépendances du projet
+
 RUN npm install
 
-# Copie de tout le code source de l'application dans le conteneur
-COPY . .
+# Copier le reste des fichiers de l'application dans le conteneur
+COPY src/ ./src
 
-# Exposition du port sur lequel l'application écoute
 EXPOSE 3000
-
-# Commande pour démarrer l'application
-CMD ["npm", "start"]
+CMD [ "npm", "start" ]
